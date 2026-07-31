@@ -47,6 +47,104 @@ export default function EquationCraftingLab({ onBack }) {
     'Level 10: Algebraic Identities'
   ];
 
+  const LOCAL_QUESTION_BANK = {
+    0: [
+      { target: '12', reagents: ['3', '4', '2', '6'] },
+      { target: '15', reagents: ['5', '3', '10', '5'] },
+      { target: '20', reagents: ['4', '5', '10', '2'] },
+      { target: '8', reagents: ['2', '4', '12', '4'] }
+    ],
+    1: [
+      { target: '2x + 6', reagents: ['2', 'x', '6'] },
+      { target: '3x + 12', reagents: ['3', 'x', '4'] },
+      { target: '5x - 10', reagents: ['5', 'x', '2'] },
+      { target: '4x + 8', reagents: ['4', 'x', '2'] }
+    ],
+    2: [
+      { target: '3*(x + 4)', reagents: ['3', 'x', '4'] },
+      { target: '2*(x + 5)', reagents: ['2', 'x', '5'] },
+      { target: '4*(x - 2)', reagents: ['4', 'x', '2'] }
+    ],
+    3: [
+      { target: '(x + 2)*(x + 3)', reagents: ['x', '2', 'x', '3'] },
+      { target: '(x + 1)*(x + 4)', reagents: ['x', '1', 'x', '4'] },
+      { target: '(x - 1)*(x + 3)', reagents: ['x', '1', 'x', '3'] }
+    ],
+    4: [
+      { target: 'x^2 + 5x + 6', reagents: ['x', '2', 'x', '3'] },
+      { target: 'x^2 + 7x + 12', reagents: ['x', '3', 'x', '4'] },
+      { target: 'x^2 - 4', reagents: ['x', '2', 'x', '2'] }
+    ],
+    5: [
+      { target: '(x + 1)/(x - 1)', reagents: ['x', '1', 'x', '1'] },
+      { target: '(2x + 4)/2', reagents: ['2', 'x', '4', '2'] }
+    ],
+    6: [
+      { target: 'x^3 + 1', reagents: ['x', '1', 'x^2', 'x'] },
+      { target: '(x + 1)^3', reagents: ['x', '1', '3'] }
+    ],
+    7: [
+      { target: 'x*(x + 1)*(x + 2)', reagents: ['x', 'x', '1', 'x', '2'] }
+    ],
+    8: [
+      { target: '(x + 2)^2', reagents: ['x', '2', 'x', '2'] },
+      { target: '(x - 3)^2', reagents: ['x', '3', 'x', '3'] }
+    ],
+    9: [
+      { target: 'a^2 - b^2', reagents: ['a', 'b', 'a', 'b'] },
+      { target: '(a + b)^2', reagents: ['a', 'b', 'a', 'b'] }
+    ]
+  };
+
+  const evalMathExpr = (expr, xVal = 3, aVal = 2, bVal = 5) => {
+    try {
+      let js = String(expr)
+        .replace(/\^/g, '**')
+        .replace(/(\d+)([a-zA-Z])/g, '$1*$2')
+        .replace(/([a-zA-Z])([a-zA-Z])/g, '$1*$2')
+        .replace(/\)\(/g, ')*(')
+        .replace(/(\d+)\(/g, '$1*(')
+        .replace(/\)([a-zA-Z0-9])/g, ')*$1');
+      const fn = new Function('x', 'a', 'b', `return (${js});`);
+      return fn(xVal, aVal, bVal);
+    } catch (e) {
+      return NaN;
+    }
+  };
+
+  const areEquivalent = (expr1, expr2) => {
+    if (!expr1 || !expr2) return false;
+    const clean1 = String(expr1).replace(/\s+/g, '');
+    const clean2 = String(expr2).replace(/\s+/g, '');
+    if (clean1 === clean2) return true;
+
+    const testPoints = [
+      [2, 3, 4],
+      [5, 1, 3],
+      [7, 4, 2]
+    ];
+    for (const [x, a, b] of testPoints) {
+      const v1 = evalMathExpr(clean1, x, a, b);
+      const v2 = evalMathExpr(clean2, x, a, b);
+      if (isNaN(v1) || isNaN(v2) || Math.abs(v1 - v2) > 1e-5) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const setupCrucible = (rawReagents) => {
+    const initialCrucible = rawReagents
+      .filter(r => !['+', '-', '*', '/', '(', ')'].includes(r))
+      .map((r, idx) => ({
+        id: `reagent-${idx}-${Date.now()}`,
+        label: r,
+        expr: r
+      }));
+    setCrucible(initialCrucible);
+    setStartTime(Date.now());
+  };
+
   // Load a new question
   const fetchQuestion = async () => {
     setLoading(true);
@@ -55,30 +153,27 @@ export default function EquationCraftingLab({ onBack }) {
     setSelectedCatalyst(null);
     setFeedback('');
 
+    let loadedData = null;
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
       const response = await fetch(`${API_BASE}/alchemy-api/question?difficulty=${difficulty}`);
-      const data = await response.json();
-
-      setTarget(data.target);
-      setReagents(data.reagents);
-
-      // Initialize the crucible with the raw reagents
-      const initialCrucible = data.reagents
-        .filter(r => !['+', '-', '*', '/', '(', ')'].includes(r))
-        .map((r, idx) => ({
-          id: `reagent-${idx}-${Date.now()}`,
-          label: r,
-          expr: r
-        }));
-      setCrucible(initialCrucible);
-      setStartTime(Date.now());
+      const contentType = response.headers.get('content-type') || '';
+      if (response.ok && contentType.includes('application/json')) {
+        loadedData = await response.json();
+      }
     } catch (err) {
-      console.error('Error fetching question:', err);
-      setFeedback('Error loading ingredients from the guild repository.');
-    } finally {
-      setLoading(false);
+      console.warn('Backend question fetch failed, using offline fallback:', err);
     }
+
+    if (!loadedData || !loadedData.target || !loadedData.reagents) {
+      const pool = LOCAL_QUESTION_BANK[difficulty] || LOCAL_QUESTION_BANK[0];
+      loadedData = pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    setTarget(loadedData.target);
+    setReagents(loadedData.reagents);
+    setupCrucible(loadedData.reagents);
+    setLoading(false);
   };
 
   // Start the game session
@@ -168,6 +263,8 @@ export default function EquationCraftingLab({ onBack }) {
 
     setSubmittedLabel(userLabel);
     setLoading(true);
+    let correct = false;
+
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
       const response = await fetch(`${API_BASE}/alchemy-api/check`, {
@@ -175,50 +272,54 @@ export default function EquationCraftingLab({ onBack }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userExpression: userExpr, target })
       });
-      const data = await response.json();
-
-      const correct = data.correct;
-      setIsCorrect(correct);
-      setRevealed(true);
-
-      if (correct) {
-        setScore(prev => prev + 1);
-        setFeedback('Correct! The formula is mathematically equivalent to the target compound!');
-
-        // Auto-advance configuration
-        let sec = 4;
-        setAutoCountdown(sec);
-        autoTimerRef.current = setInterval(() => {
-          sec -= 1;
-          if (sec <= 0) {
-            clearInterval(autoTimerRef.current);
-            handleNextQuestion();
-          } else {
-            setAutoCountdown(sec);
-          }
-        }, 1000);
+      const contentType = response.headers.get('content-type') || '';
+      if (response.ok && contentType.includes('application/json')) {
+        const data = await response.json();
+        correct = data.correct;
       } else {
-        setFeedback('Failed! The properties of your brewed compound do not match the target.');
+        correct = areEquivalent(userExpr, target);
       }
-
-      // Save results
-      const elapsed = Math.round((Date.now() - startTime) / 1000);
-      setResults(prev => [
-        ...prev,
-        {
-          question: `Target: ${target}`,
-          userAnswer: userExpr,
-          correctAnswer: target,
-          isCorrect: correct,
-          time: elapsed
-        }
-      ]);
     } catch (err) {
-      console.error('Error checking answer:', err);
-      setFeedback('Error connecting to the alchemical evaluation server.');
-    } finally {
-      setLoading(false);
+      console.warn('Backend evaluation failed, using local evaluator fallback:', err);
+      correct = areEquivalent(userExpr, target);
     }
+
+    setIsCorrect(correct);
+    setRevealed(true);
+
+    if (correct) {
+      setScore(prev => prev + 1);
+      setFeedback('Correct! The formula is mathematically equivalent to the target compound!');
+
+      // Auto-advance configuration
+      let sec = 4;
+      setAutoCountdown(sec);
+      autoTimerRef.current = setInterval(() => {
+        sec -= 1;
+        if (sec <= 0) {
+          clearInterval(autoTimerRef.current);
+          handleNextQuestion();
+        } else {
+          setAutoCountdown(sec);
+        }
+      }, 1000);
+    } else {
+      setFeedback('Failed! The properties of your brewed compound do not match the target.');
+    }
+
+    // Save results
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    setResults(prev => [
+      ...prev,
+      {
+        question: `Target: ${target}`,
+        userAnswer: userExpr,
+        correctAnswer: target,
+        isCorrect: correct,
+        time: elapsed
+      }
+    ]);
+    setLoading(false);
   };
 
   // Clean countdown and advance
