@@ -105,6 +105,8 @@ import PlaygroundApp from './PlaygroundApp'
 import LocalCompilerApp from './LocalCompilerApp'
 import BattleApp from './BattleApp'
 import SudokuApp from './SudokuApp'
+import WaterJugLab from './WaterJugLab'
+import EquationCraftingLab from './EquationCraftingLab'
 
 // API base URL from environment variables (Vite)
 const API = import.meta.env.VITE_API_BASE_URL || '';
@@ -43357,6 +43359,16 @@ function App() {
     return <ExtendedEuclidApp />
   }
 
+  // Route: /water-jug-lab → Water Jug GCD Lab
+  if (pathname === '/water-jug-lab') {
+    return <WaterJugLab onBack={() => { window.location.href = withBase('/') }} />
+  }
+
+  // Route: /equation-crafting-lab → Equation Crafting Lab
+  if (pathname === '/equation-crafting-lab') {
+    return <EquationCraftingLab onBack={() => { window.location.href = withBase('/') }} />
+  }
+
   // Route: /linear → Linear Algebra flashcards (proctored quiz)
   // Proctoring starts automatically on this route — no toggle needed.
   if (pathname === '/linear') {
@@ -44990,6 +45002,8 @@ function Home({ onSelect, completedTopics = [], goldMastery = [], coins = 0, isG
     { key: 'lineqgym', name: 'LinearEquations-Gym', subtitle: 'Solve linear equations (MCQ)', color: 'blue' },
     { key: 'indicesgym', name: 'Indices-Gym', subtitle: 'Index laws (MCQ)', color: 'green' },
     { key: 'polygym', name: 'Polynomials Gym', subtitle: 'Arithmetic → monomial algebra (MCQ)', color: 'blue' },
+    { key: 'water-jug-lab', name: '🧪 Water Jug Lab', subtitle: 'GCD discovery — 13-level progression', color: 'teal', isRedirect: true, path: '/water-jug-lab' },
+    { key: 'equation-crafting-lab', name: '⚗️ Equation Crafting Lab', subtitle: 'Build expressions in the mixing pot', color: 'orange', isRedirect: true, path: '/equation-crafting-lab' },
   ] // end regularApps (MatrixMystics tile removed — uses LinearAlgebraApp via linearalgebra mode)
 
   // Combined list for search filtering
