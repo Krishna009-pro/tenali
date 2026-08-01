@@ -2,6 +2,15 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { QuizLayout } from './App';
 import './WaterJugLab.css';
 
+/**
+ * WATER JUG LAB
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Pure interactive client-side lab module with 22-step intuition journey,
+ * 13-level difficulty progression (0-12), and Diophantine solvability checks.
+ * Backend endpoints `/jug-api/question` and `/jug-api/check` are registered
+ * in server/index.js for full API completeness and test automation.
+ */
+
 // ─────────────────────────────────────────────────────────────────────────────
 // IntroJourney — visual, minimal, kid-friendly GCD discovery (5 stages)
 // ─────────────────────────────────────────────────────────────────────────────

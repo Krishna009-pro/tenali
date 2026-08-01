@@ -1469,6 +1469,24 @@ const ALCHEMY_QUESTION_BANK = {
   ]
 };
 
+const SAFE_MATH_REGEX = /^[\d\s\+\-\*\/\^\(\)\.xab]*$/;
+
+const sanitizeMathExpr = (expr) => {
+  if (typeof expr !== 'string') return null;
+  const trimmed = expr.trim();
+  if (!trimmed || !SAFE_MATH_REGEX.test(trimmed)) return null;
+  const lower = trimmed.toLowerCase();
+  const forbidden = [
+    'process', 'require', 'import', 'global', 'window', 'document',
+    'eval', 'function', 'constructor', 'prototype', 'this', 'self',
+    'fetch', 'xmlhttprequest', 'exec', 'spawn', 'cookie', 'storage'
+  ];
+  for (const kw of forbidden) {
+    if (lower.includes(kw)) return null;
+  }
+  return trimmed;
+};
+
 app.get('/alchemy-api/question', (req, res) => {
   const diff = Number(req.query.difficulty || 0);
   const pool = ALCHEMY_QUESTION_BANK[diff] || ALCHEMY_QUESTION_BANK[0];
@@ -1478,6 +1496,16 @@ app.get('/alchemy-api/question', (req, res) => {
 
 app.post('/alchemy-api/check', (req, res) => {
   const { userExpression, target } = req.body || {};
+  const safeUser = sanitizeMathExpr(userExpression);
+  const safeTarget = sanitizeMathExpr(target);
+
+  if (!safeUser || !safeTarget) {
+    return res.status(400).json({
+      correct: false,
+      error: 'Invalid or unsafe mathematical expression provided.'
+    });
+  }
+
   const evalMathExpr = (expr, xVal = 3, aVal = 2, bVal = 5) => {
     try {
       let js = String(expr)
@@ -1494,11 +1522,11 @@ app.post('/alchemy-api/check', (req, res) => {
     }
   };
 
-  const clean1 = String(userExpression || '').replace(/\s+/g, '');
-  const clean2 = String(target || '').replace(/\s+/g, '');
+  const clean1 = safeUser.replace(/\s+/g, '');
+  const clean2 = safeTarget.replace(/\s+/g, '');
   let correct = clean1 === clean2;
 
-  if (!correct && clean1 && clean2) {
+  if (!correct) {
     const testPoints = [[2, 3, 4], [5, 1, 3], [7, 4, 2]];
     correct = testPoints.every(([x, a, b]) => {
       const v1 = evalMathExpr(clean1, x, a, b);
@@ -1507,7 +1535,65 @@ app.post('/alchemy-api/check', (req, res) => {
     });
   }
 
-  res.json({ correct, target, userExpression });
+  res.json({ correct, target: safeTarget, userExpression: safeUser });
+});
+
+/**
+ * WATER JUG LAB API
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Note: Water Jug Lab is an interactive client-side lab module.
+ * These endpoints provide backend support for problem data and GCD verification.
+ */
+app.get('/jug-api/question', (req, res) => {
+  const diff = Math.min(12, Math.max(0, Number(req.query.difficulty || 0)));
+  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+
+  const levelConfigs = [
+    { jugA: 3, jugB: 5, target: 4 },
+    { jugA: 4, jugB: 6, target: 2 },
+    { jugA: 2, jugB: 7, target: 3 },
+    { jugA: 5, jugB: 8, target: 6 },
+    { jugA: 3, jugB: 7, target: 5 },
+    { jugA: 4, jugB: 9, target: 7 },
+    { jugA: 5, jugB: 11, target: 9 },
+    { jugA: 6, jugB: 10, target: 4 },
+    { jugA: 7, jugB: 12, target: 8 },
+    { jugA: 8, jugB: 15, target: 11 },
+    { jugA: 6, jugB: 9, target: 5 },
+    { jugA: 4, jugB: 10, target: 7 },
+    { jugA: 9, jugB: 14, target: 11 }
+  ];
+
+  const cfg = levelConfigs[diff] || levelConfigs[0];
+  const g = gcd(cfg.jugA, cfg.jugB);
+  const solvable = cfg.target % g === 0 && cfg.target <= Math.max(cfg.jugA, cfg.jugB);
+
+  res.json({
+    difficulty: diff,
+    jugA: cfg.jugA,
+    jugB: cfg.jugB,
+    target: cfg.target,
+    gcd: g,
+    solvable
+  });
+});
+
+app.post('/jug-api/check', (req, res) => {
+  const { jugA, jugB, target, userClaimedImpossible } = req.body || {};
+  const jA = Number(jugA);
+  const jB = Number(jugB);
+  const tgt = Number(target);
+
+  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+  const g = gcd(jA, jB);
+  const isSolvable = tgt % g === 0 && tgt <= Math.max(jA, jB);
+
+  if (userClaimedImpossible !== undefined) {
+    const correct = (userClaimedImpossible && !isSolvable) || (!userClaimedImpossible && isSolvable);
+    return res.json({ correct, isSolvable, gcd: g });
+  }
+
+  res.json({ isSolvable, gcd: g });
 });
 
 /**

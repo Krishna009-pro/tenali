@@ -96,9 +96,29 @@ export default function EquationCraftingLab({ onBack }) {
     ]
   };
 
+  const SAFE_MATH_REGEX = /^[\d\s\+\-\*\/\^\(\)\.xab]*$/;
+
+  const sanitizeMathExpr = (expr) => {
+    if (typeof expr !== 'string') return null;
+    const trimmed = expr.trim();
+    if (!trimmed || !SAFE_MATH_REGEX.test(trimmed)) return null;
+    const lower = trimmed.toLowerCase();
+    const forbidden = [
+      'process', 'require', 'import', 'global', 'window', 'document',
+      'eval', 'function', 'constructor', 'prototype', 'this', 'self',
+      'fetch', 'xmlhttprequest', 'exec', 'spawn', 'cookie', 'storage'
+    ];
+    for (const kw of forbidden) {
+      if (lower.includes(kw)) return null;
+    }
+    return trimmed;
+  };
+
   const evalMathExpr = (expr, xVal = 3, aVal = 2, bVal = 5) => {
+    const safe = sanitizeMathExpr(expr);
+    if (!safe) return NaN;
     try {
-      let js = String(expr)
+      let js = safe
         .replace(/\^/g, '**')
         .replace(/(\d+)([a-zA-Z])/g, '$1*$2')
         .replace(/([a-zA-Z])([a-zA-Z])/g, '$1*$2')
@@ -113,9 +133,11 @@ export default function EquationCraftingLab({ onBack }) {
   };
 
   const areEquivalent = (expr1, expr2) => {
-    if (!expr1 || !expr2) return false;
-    const clean1 = String(expr1).replace(/\s+/g, '');
-    const clean2 = String(expr2).replace(/\s+/g, '');
+    const safe1 = sanitizeMathExpr(expr1);
+    const safe2 = sanitizeMathExpr(expr2);
+    if (!safe1 || !safe2) return false;
+    const clean1 = safe1.replace(/\s+/g, '');
+    const clean2 = safe2.replace(/\s+/g, '');
     if (clean1 === clean2) return true;
 
     const testPoints = [
