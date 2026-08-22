@@ -44,10 +44,40 @@ if (JWT_SECRET === DEFAULT_DEV_SECRET) {
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true },
+  xp: { type: Number, default: 500 },
+  hintLogs: [{
+    concept: String,
+    questionId: String,
+    level: Number,
+    unlockedAt: { type: Date, default: Date.now }
+  }],
+  lessonStats: [{
+    concept: String,
+    questionsCount: Number,
+    correctCount: { type: Number, default: 0 },
+    hintsUsed: Number,
+    bonusAwarded: Boolean,
+    perfectScoreBonusAwarded: { type: Boolean, default: false },
+    completedAt: { type: Date, default: Date.now }
+  }],
+  // Reward-system fields (v2 hint feature)
+  // lastDailyCheckin: date string 'YYYY-MM-DD' (server local) for the most recent
+  // day the user was awarded a daily check-in bonus. Compared against today
+  // before granting +5 XP.
+  lastDailyCheckin: { type: String, default: null },
+  dailyCheckinCount: { type: Number, default: 0 },
+  // correctStats: ring buffer (most recent ~200 entries) of per-correct-answer
+  // +1 XP events. Powers future analytics and the anti-cheese cap.
+  correctStats: [{
+    concept: String,
+    at: { type: Date, default: Date.now }
+  }],
+  firstMergeDone: { type: Boolean, default: false },
+  lessonsCompleted: { type: [String], default: [] },
   createdAt: { type: Date, default: Date.now },
   completedTopics: { type: [String], default: [] },
   goldMastery: { type: [String], default: [] },
-  coins: { type: Number, default: 0 },
+  coins: { type: Number, default: 500 },
   achievements: {
     completedCollections: [
       {
@@ -69,9 +99,34 @@ const UserSchema = new mongoose.Schema({
     }
   ],
   gradeLevel: { type: String, default: 'Grade 3' },
-  coinBalance: { type: Number, default: 0 },
-  xpScore: { type: Number, default: 0 },
+  coinBalance: { type: Number, default: 500 },
+  xpScore: { type: Number, default: 500 },
   role: { type: String, default: 'user', enum: ['user', 'admin'] }
+});
+
+UserSchema.pre('save', function (next) {
+  if (this.isModified('coins')) {
+    const val = this.coins;
+    this.xp = val;
+    this.coinBalance = val;
+    this.xpScore = val;
+  } else if (this.isModified('xp')) {
+    const val = this.xp;
+    this.coins = val;
+    this.coinBalance = val;
+    this.xpScore = val;
+  } else if (this.isModified('coinBalance')) {
+    const val = this.coinBalance;
+    this.coins = val;
+    this.xp = val;
+    this.xpScore = val;
+  } else if (this.isModified('xpScore')) {
+    const val = this.xpScore;
+    this.coins = val;
+    this.xp = val;
+    this.coinBalance = val;
+  }
+  next();
 });
 
 const ProgressSchema = new mongoose.Schema({
@@ -86,8 +141,18 @@ const ProgressSchema = new mongoose.Schema({
 // Ensure a user has only one progress document per topic
 ProgressSchema.index({ userId: 1, topic: 1 }, { unique: true });
 
+const ContrastProgressSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
+  completedModules: { type: [String], default: [] },
+  unlockedPairs: { type: [String], default: [] },
+  seenPairs: { type: [String], default: [] },
+  completedPairs: { type: [String], default: [] },
+  updatedAt: { type: Date, default: Date.now }
+});
+
 const User = mongoose.model('User', UserSchema);
 const Progress = mongoose.model('Progress', ProgressSchema);
+const ContrastProgress = mongoose.model('ContrastProgress', ContrastProgressSchema);
 
 const StudentAttemptLogSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -164,7 +229,7 @@ let connected = false;
 
 async function connectMongo(uri = MONGO_URI) {
   if (connected) return;
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 8000, family: 4 });
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 15000, family: 4 });
   connected = true;
   console.log(`[auth] Mongo connected: ${uri.replace(/\/\/.*@/, '//***@')}`);
 }
@@ -283,4 +348,4 @@ router.get('/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
 });
 
-module.exports = { connectMongo, seedUsers, router, requireAuth, requireAdmin, JWT_SECRET, User, Progress, StudentAttemptLog, UserStats, UserMilestone, UserTopicProgress, UserCollectionProgress };
+module.exports = { connectMongo, seedUsers, router, requireAuth, requireAdmin, JWT_SECRET, User, Progress, ContrastProgress, StudentAttemptLog, UserStats, UserMilestone, UserTopicProgress, UserCollectionProgress };

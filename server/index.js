@@ -65,6 +65,7 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
+
 // Initialize Express app and configure middleware
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -119,6 +120,7 @@ app.use(express.static(clientDistPath));
 const auth = require('./auth');
 const transferScenarios = require('./transferScenarios');
 const progress = require('./progress');
+const hints = require('./hints');
 const translate = require('./translate');
 
 // Load static collections definitions
@@ -131,7 +133,24 @@ try {
 }
 app.use('/api/auth', auth.router);
 app.use('/api/progress', progress.router);
+app.use('/api/hints', hints);
 app.use('/api/translate', translate.router);
+const treasurehuntRouter = require('./treasurehunt/routes');
+
+console.log("Treasure router imported");
+
+app.use('/treasurehunt-api/', (req, res, next) => {
+    console.log("Treasure API:", req.method, req.url);
+    next();
+});
+
+app.use('/treasurehunt-api', treasurehuntRouter);
+app.get('/test-12345', (req, res) => {
+  res.json({
+    ok: true,
+    message: "THIS IS THE SERVER YOU ARE EDITING"
+  });
+});
 auth.seedUsers().catch(() => {});  // always populate in-memory fallback
 
 async function connectAuthMongoWithRetry(attempt = 1) {
@@ -517,6 +536,7 @@ app.use(async (req, res, next) => {
 
 
 const { generateExplanation } = require('./explanations');
+global.generateExplanation = generateExplanation;
 
 /**
  * Generate a random integer between min and max (inclusive)
@@ -9719,6 +9739,11 @@ app.use('/darts-api', dartsRouter);
 const wordCreatorRouter = require('./routes/wordCreator');
 app.use('/wordcreator-api', wordCreatorRouter);
 
+// CONTRAST CHALLENGE PUZZLE ROUTER (contrast-api)
+// ═══════════════════════════════════════════════════════════════════════════
+const contrastRouter = require('./routes/contrast');
+app.use('/contrast-api', contrastRouter);
+
 // PROCTOR API — Session management, anomaly logging, emotion tracking
 // ═══════════════════════════════════════════════════════════════════════════
 const { ProctorSession, ProctorEvent, Emotion } = require('./proctorSchema');
@@ -12589,7 +12614,14 @@ app.get('/la-mission-quiz-api/question', (req, res) => {
 });
 
 app.post('/la-mission-quiz-api/check', (req, res) => {
-  const { answer: expected, answerType, type, data, prompt } = req.body;
+  const { answer: expected, answerType } = req.body;
+  // Refuse malformed payloads with a clean 400 instead of a 500. The
+  // norm(expected) call below would otherwise TypeError on undefined and
+  // fall through to the global error handler (returning
+  // {"error":"Internal server error"} to the client).
+  if (expected === undefined || expected === null) {
+    return res.status(400).json({ error: 'answer is required' });
+  }
   const raw = (req.body.userAnswer || '').trim();
   const norm = (s) => s.replace(/\s+/g, '').replace(/\u2212/g, '-').toLowerCase();
   const n = norm(raw);
@@ -13492,7 +13524,17 @@ app.get('/matrixmystics-api/stats', (req, res) => {
  * Serves the React/Vue SPA index.html for all unmatched routes.
  * MUST be the last route — registered after all API endpoints so it does
  * not shadow /<type>-api routes.
+ *
+ * Sub-path deployments (VITE_BASE_PATH=/summership) get redirected from the
+ * domain root to the sub-path so a user landing on https://tenali.fun/
+ * ends up on the live, current build at https://tenali.fun/summership/
+ * instead of being served a stale SPA shell that can't reach the API.
  */
+const SUBPATH_REDIRECT = (process.env.SUBPATH_REDIRECT || '/summership').replace(/\/+$/, '');
+if (SUBPATH_REDIRECT && SUBPATH_REDIRECT !== '/') {
+  app.get('/', (_req, res) => res.redirect(302, SUBPATH_REDIRECT + '/'));
+}
+
 app.get(/.*/, (_req, res) => {
   res.sendFile(path.join(clientDistPath, 'index.html'));
 });
@@ -13511,6 +13553,8 @@ const io = new SocketIOServer(httpServer, {
   maxHttpBufferSize: 1e6,
   connectionStateRecovery: { maxDisconnectionDuration: 2 * 60 * 1000 },
 });
+
+
 
 // ─── Connection cap ──────────────────────────────────────────────────────
 let connectionCount = 0;
@@ -14281,8 +14325,11 @@ io.on('connection', (socket) => {
   socket.on('createRoom', ({ name, topic, numQuestions }, cb) => {
     const code = generateRoomCode();
     const nq = BATTLE_QUESTION_COUNTS.includes(numQuestions) ? numQuestions : 5;
+    if (!BATTLE_TOPICS.includes(topic)) {
+      return cb?.({ ok: false, error: `Unknown topic: ${topic}` });
+    }
     const room = {
-      code, topic: BATTLE_TOPICS.includes(topic) ? topic : 'arithmetic',
+      code, topic,
       numQuestions: nq,
       players: [{ socketId: socket.id, name: (name || 'Player').slice(0, 20), score: 0, ready: false }],
       round: 0, state: 'waiting', currentQuestion: null, roundStartTime: 0, answers: {}, roundTimer: null,
@@ -14380,8 +14427,15 @@ io.on('connection', (socket) => {
     if (!room) return;
     room.players = room.players.filter(p => p.socketId !== socket.id);
     socket.leave(room.code);
-    if (room.players.length === 0) { clearTimeout(room.roundTimer); rooms.delete(room.code); }
-    else { io.to(room.code).emit('opponentLeft', { name: 'Opponent' }); clearTimeout(room.roundTimer); rooms.delete(room.code); }
+    clearTimeout(room.roundTimer);
+    if (room.players.length === 0) {
+      rooms.delete(room.code);
+    } else {
+      io.to(room.code).emit('opponentLeft', { name: 'Opponent' });
+      // Mark the room as ended so any leftover submit/ready events from
+      // the leaving socket can't keep score flowing into a phantom match.
+      room.state = 'ended';
+    }
     socket.roomCode = null;
     broadcastOpenRooms();
   });
@@ -14398,8 +14452,15 @@ io.on('connection', (socket) => {
     const player = room.players.find(p => p.socketId === socket.id);
     room.players = room.players.filter(p => p.socketId !== socket.id);
     clearTimeout(room.roundTimer);
-    if (room.players.length === 0) rooms.delete(room.code);
-    else { io.to(room.code).emit('opponentLeft', { name: player?.name || 'Opponent' }); rooms.delete(room.code); }
+    if (room.players.length === 0) {
+      rooms.delete(room.code);
+    } else {
+      io.to(room.code).emit('opponentLeft', { name: player?.name || 'Opponent' });
+      // Same fix as in 'leave': don't delete the room out from under the
+      // remaining player. Mark it ended so any in-flight events from the
+      // disconnecting socket can't continue to mutate it.
+      room.state = 'ended';
+    }
     broadcastOpenRooms();
   });
 });
@@ -14412,7 +14473,22 @@ io.on('connection', (socket) => {
 app.use((err, req, res, next) => {
   logger.error('http', `${req.method} ${req.originalUrl} ->`, err);
   if (res.headersSent) return;
-  res.status(err.status || 500).json({ error: 'Internal server error' });
+  // Map common client-error statuses (and Express body-parser's
+  // SyntaxError → 400) to a useful message instead of the misleading
+  // 'Internal server error'. Anything we don't recognise still falls
+  // through to 500.
+  const status = err.status || 500;
+  let message = 'Internal server error';
+  if (status === 400) {
+    message = err.type === 'entity.parse.failed' || err instanceof SyntaxError
+      ? 'Invalid JSON body'
+      : 'Bad request';
+  } else if (status === 413) {
+    message = 'Request body too large';
+  } else if (status === 415) {
+    message = 'Unsupported media type';
+  }
+  res.status(status).json({ error: message });
 });
 
 // Loads the two large question sets concurrently (Promise.all lets their
@@ -14448,3 +14524,4 @@ if (require.main === module) {
 
 module.exports = app;
 module.exports.io = io;
+

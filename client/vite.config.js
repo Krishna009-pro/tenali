@@ -74,6 +74,8 @@ export default defineConfig({
       '/vocab-api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
       // Concept Matching API
       '/concept-api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
+      // Contrast challenge API
+      '/contrast-api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
       // Polynomial multiplication quiz API
       '/polymul-api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
       // Polynomial factoring quiz API
@@ -143,6 +145,8 @@ export default defineConfig({
       '/pythag-api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
       '/polygons-api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
       '/similarity-api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
+      // Treasure Hunt game API
+      '/treasurehunt-api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
       '/dotprod-api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
       '/squaring-api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
       '/tatsavit-api': { target: 'http://127.0.0.1:4000', changeOrigin: true },
