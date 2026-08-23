@@ -83,9 +83,9 @@ It is built to run on a single VPS — `tenali.fun` — with one Node process se
       <td align="center"><b>882</b><br/><sub>commits</sub></td>
       <td align="center"><b>80</b><br/><sub>PRs merged</sub></td>
       <td align="center"><b>25</b><br/><sub>GitHub contributors</sub></td>
-      <td align="center"><b>⭐ 6</b><br/><sub>stars</sub></td>
-      <td align="center"><b>🍴 65</b><br/><sub>forks</sub></td>
-      <td align="center"><b>🐛 53</b><br/><sub>open issues</sub></td>
+      <td align="center"><b>⭐ 0</b><br/><sub>stars</sub></td>
+      <td align="center"><b>🍴 0</b><br/><sub>forks</sub></td>
+      <td align="center"><b>🐛 0</b><br/><sub>open issues</sub></td>
     </tr>
   </table>
 </p>
@@ -606,7 +606,7 @@ tenali.fun (DNS → <production IP — redacted from public docs>)
 ### 🥇 Leaderboard
 
 <!-- live-rank:start -->
-_Live data — last regenerated 2026-08-22 · auto-refreshed by [`github-actions[bot]`](https://github.com/features/actions) on every push to `main` and every 12h._
+_Live data — last regenerated 2026-08-23 · auto-refreshed by [`github-actions[bot]`](https://github.com/features/actions) on every push to `main` and every 12h._
 
 | # | 👤 Real Name | 🔗 GitHub ID | 📝 Commits | 🔀 PRs | 🏷️ Role |
 |--:|:-------------|:-------------|----------:|-----:|:--------|
