@@ -46,6 +46,7 @@
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const math = require('mathjs');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
@@ -1528,15 +1529,7 @@ app.post('/alchemy-api/check', (req, res) => {
 
   const evalMathExpr = (expr, xVal = 3, aVal = 2, bVal = 5) => {
     try {
-      let js = String(expr)
-        .replace(/\^/g, '**')
-        .replace(/(\d+)([a-zA-Z])/g, '$1*$2')
-        .replace(/([a-zA-Z])([a-zA-Z])/g, '$1*$2')
-        .replace(/\)\(/g, ')*(')
-        .replace(/(\d+)\(/g, '$1*(')
-        .replace(/\)([a-zA-Z0-9])/g, ')*$1');
-      const fn = new Function('x', 'a', 'b', `return (${js});`);
-      return fn(xVal, aVal, bVal);
+      return math.evaluate(String(expr), { x: xVal, a: aVal, b: bVal });
     } catch (e) {
       return NaN;
     }

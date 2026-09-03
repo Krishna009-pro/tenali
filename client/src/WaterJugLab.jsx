@@ -34,6 +34,11 @@ function IntroJourney({ onComplete }) {
   const [jugA, setJugA] = useState(0);
   const [jugB, setJugB] = useState(0);
 
+  useEffect(() => {
+    setJugA(0);
+    setJugB(0);
+  }, [level]);
+
   /* Level 16 State (Puzzle) */
   const [puzzleStep, setPuzzleStep] = useState(0);
 
@@ -279,7 +284,7 @@ function IntroJourney({ onComplete }) {
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${(jugB / 6) * 100}%`, background: '#F08C46', transition: 'height 0.4s ease' }} />
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="journey-step-btn" onClick={() => setJugA(4)}>🚰 Fill A</button>
             <button className="journey-step-btn" onClick={() => {
               const currentA = jugA === 0 ? 4 : jugA;
@@ -287,6 +292,7 @@ function IntroJourney({ onComplete }) {
               setJugA(currentA - amt);
               setJugB(p => Math.min(6, p + amt));
             }}>➡️ Pour A ➔ B</button>
+            <button className="journey-step-btn" onClick={() => { setJugA(0); setJugB(0); }}>🫗 Reset Jugs</button>
           </div>
         </div>
       )}
@@ -321,6 +327,7 @@ function IntroJourney({ onComplete }) {
               setJugA(curA - amt);
               setJugB(p => Math.min(capB, p + amt));
             }}>➡️ Pour A ➔ B</button>
+            <button className="journey-step-btn" onClick={() => { setJugA(0); setJugB(0); }}>🫗 Reset Jugs</button>
           </div>
 
           {level === 14 && (
