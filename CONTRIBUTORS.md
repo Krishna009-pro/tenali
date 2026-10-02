@@ -193,6 +193,7 @@ _Live data — last regenerated 2026-10-02 · auto-refreshed by [`github-actions
         <br/><b>Lakshmi Varshini Nandula </b>
         <br/><a href="https://github.com/varshini-nandula">@varshini-nandula</a>
         <br/><sub>🏆 43 commits · 1 PR merged</sub>
+        <br/><sub>📍 Palakollu, India</sub>
       </td>
       <td valign="top" width="*">
         <h4>4. Profile Showcase & Offline Storage</h4>
